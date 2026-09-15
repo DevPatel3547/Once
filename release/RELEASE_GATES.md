@@ -1,9 +1,9 @@
 # Release gates and identity audit
 
 ## Public identity boundary
-The current owner-only hostname contains personal identifiers. Both packaged extension entry points contain that origin. Do not distribute the current package as an anonymous public launch.
+The previous owner-only hostname contains personal identifiers. The current development package targets localhost; it is not a public release. Build a release package for the verified neutral public origin using scripts/package-extension.py.
 
-Required: a neutral domain, DNS access, a dedicated support email, a brand publisher account, and brand marketing accounts. Configure the final origin in extension/background.js and extension/popup.js, rebuild the package, update all public links, and verify the old hostname is absent from distributed assets. A neutral domain alone does not guarantee that hosting redirects, headers, certificates, or account pages reveal no connection; inspect them before public release.
+Required: a neutral domain, DNS access, a dedicated support email, a brand publisher account, and brand marketing accounts. Pass the final origin to scripts/package-extension.py, update all public links, and verify the old hostname is absent from distributed assets. A neutral domain alone does not guarantee that hosting redirects, headers, certificates, or account pages reveal no connection; inspect them before public release.
 
 Keep this repository private until its files AND commit metadata have been audited. The connected personal GitHub account must not be used for anonymous promotion. If publishing source later, use a brand-owned repository and a deliberate history export; do not rewrite the existing private source history to hide it.
 

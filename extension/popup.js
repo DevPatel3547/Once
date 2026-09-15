@@ -1,4 +1,4 @@
-const ORIGIN='https://onceguide-devp.diave.chatgpt.site';
+const ORIGIN='http://localhost:5173';
 const $=id=>document.getElementById(id);
 let state;
 async function render(){state=await chrome.runtime.sendMessage({type:'STATUS'});$('status').textContent=state.recording?`${state.paused?'Paused':'Recording'} · ${state.guide?.steps.length||0} steps captured` :state.guide?`${state.guide.steps.length} steps ready to edit`:'Ready when you are.';$('start').disabled=!!state.recording;$('start').textContent=state.guide?'Start a new capture':'Start recording';$('stop').hidden=!state.recording;$('pause').hidden=!state.recording;$('pause').textContent=state.paused?'Resume recording':'Pause recording';$('open').hidden=!state.guide||state.recording;$('backup').hidden=!state.guide||state.recording;$('clear').hidden=!state.guide||state.recording;}

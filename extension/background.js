@@ -1,4 +1,4 @@
-const ORIGIN='https://onceguide-devp.diave.chatgpt.site';
+const ORIGIN='http://localhost:5173';
 let queue=Promise.resolve();let lastCapture=0;
 const read=async()=> (await chrome.storage.local.get('once')).once||{};
 const write=state=>chrome.storage.local.set({once:state});
@@ -7,7 +7,11 @@ async function stop(){const state=await read();state.recording=false;state.pause
 async function imageFor(message,tab){
  const active=await chrome.tabs.query({active:true,windowId:tab.windowId});if(active[0]?.id!==tab.id)return undefined;
  if(Date.now()-lastCapture<600)return undefined;lastCapture=Date.now();
+ const before=await chrome.tabs.sendMessage(tab.id,{type:'ONCE_SCREENSHOT_STATE'},{frameId:0});
+ if(!stablePage(message,before))return undefined;
  const data=await chrome.tabs.captureVisibleTab(tab.windowId,{format:'jpeg',quality:78});
+ const afterPage=await chrome.tabs.sendMessage(tab.id,{type:'ONCE_SCREENSHOT_STATE'},{frameId:0});
+ if(!stablePage(before,afterPage))return undefined;
  const after=await chrome.tabs.get(tab.id);const current=await chrome.tabs.query({active:true,windowId:tab.windowId});
  if(after.url!==message.href||current[0]?.id!==tab.id)return undefined;
  const bitmap=await createImageBitmap(await (await fetch(data)).blob());const scale=Math.min(1,1400/bitmap.width);const canvas=new OffscreenCanvas(Math.round(bitmap.width*scale),Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
@@ -16,6 +20,7 @@ async function imageFor(message,tab){
  ctx.beginPath();ctx.arc(message.x*sx,message.y*sy,15,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.stroke();ctx.strokeStyle='#168451';ctx.lineWidth=3;ctx.stroke();
  const blob=await canvas.convertToBlob({type:'image/jpeg',quality:.82});const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));return 'data:image/jpeg;base64,'+btoa(binary);
 }
+function stablePage(a,b){return !!b&&!a.unsafeMasking&&!b.unsafeMasking&&Number.isFinite(a.revision)&&a.revision===b.revision&&a.href===b.href&&a.width===b.width&&a.height===b.height&&JSON.stringify(a.masks)===JSON.stringify(b.masks);}
 async function capture(m,sender){
  const state=await read();if(!state.recording||state.paused||sender.tab?.id!==state.tabId||sender.frameId!==0||new URL(sender.url).origin!==state.origin)return;
  if(!Number.isFinite(m.width)||!Number.isFinite(m.height)||m.width<1||m.height<1||!Array.isArray(m.masks)||m.masks.length>250||typeof m.title!=='string')return;

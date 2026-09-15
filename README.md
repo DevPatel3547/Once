@@ -13,9 +13,19 @@ A working beta consisting of a Chrome/Edge Manifest V3 capture extension and a w
 
 ## Development
 
-Node 24+; preserve the checked-in pnpm lockfile. Run the existing build script via the Sites build helper. `node node_modules/typescript/bin/tsc --noEmit` checks types. `node --test tests/core.test.mjs` runs focused validation, export, encryption, and extension state tests. Database schema is in db/schema.ts and generated migrations are in drizzle/. D1 and R2 resources are declared in .openai/hosting.json and provisioned by Sites.
+Node 24 and pnpm. Install the locked dependencies and start the local editor:
 
-Extension source is in extension/. Package using `zip -j public/once-extension.zip extension/manifest.json extension/background.js extension/content.js extension/popup.html extension/popup.js extension/popup.css extension/README.md`. The editor origin appears in extension/background.js and popup.js; update both for a different deployment. Never package credentials or environment files.
+```sh
+pnpm install --frozen-lockfile
+pnpm extension:dev
+pnpm build
+pnpm exec wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+pnpm dev
+```
+
+Open http://localhost:5173. Load `.sites-runtime/extension` as an unpacked Chrome extension to test capture against the local editor. `public/once-extension.zip` is the matching development package. Never distribute it as a public release: its editor is localhost.
+
+Run `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `pnpm build`. GitHub Actions runs these checks for pushes and pull requests. Build the public extension with `python3 scripts/package-extension.py --origin https://YOUR-VERIFIED-HOST`; that command updates both entry points together, includes the existing icons, and excludes environment files. See [deployment instructions](release/DEPLOYMENT.md) and [verification status](release/STATUS.md).
 
 ## Release boundaries
 
@@ -25,7 +35,7 @@ The extension supports same-origin workflows in the selected tab, not all deskto
 
 Local guides are device-specific, not automatically synchronized. Browser clearing deletes them; export backups. Revocation keys remain in local guide state and are intentionally excluded from share snapshots and exported backups. Revoking a link cannot remove recipient downloads.
 
-Hosted sharing is limited to 8 MB and 10 attempts per network per UTC day. IP-derived daily counters and encrypted payload sizes/timing are server-side metadata. Expired ciphertext is removed lazily when the link is visited, not guaranteed immediately at expiration. Add scheduled deletion, deployment-wide storage quotas, operational monitoring and stronger abuse protection before a large public launch. The endpoint is not a substitute for an independently audited secure document vault. No uptime, load or privacy certification is claimed.
+Hosted sharing is limited to 8 MB and 10 attempts per network per UTC day. IP-derived daily counters and encrypted payload sizes/timing are server-side metadata. Expired ciphertext is removed when visited or during bounded cleanup on later share requests, not guaranteed immediately at expiration. Add scheduled deletion, deployment-wide storage quotas, operational monitoring and stronger abuse protection before a large public launch. The endpoint is not a substitute for an independently audited secure document vault. No uptime, load or privacy certification is claimed.
 
 ## Architecture
 

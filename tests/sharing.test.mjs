@@ -16,7 +16,7 @@ function setup(){
   }
  };
  const bucket={async put(id,bytes){objects.set(id,new Uint8Array(bytes));},async get(id){return objects.has(id)?{body:objects.get(id)}:null;},async delete(id){objects.delete(id);}};
- const load=(path,imports)=>{const source=ts.transpileModule(readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const module={exports:{}};vm.runInNewContext(source,{exports:module.exports,require:s=>{if(!(s in imports))throw Error('Unexpected import '+s);return imports[s];},Response,Request,URL,crypto,TextEncoder,Uint8Array,Date,console});return module.exports;};
+ const load=(path,imports)=>{const source=ts.transpileModule(readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const loaded={exports:{}};vm.runInNewContext(source,{exports:loaded.exports,require:s=>{if(!(s in imports))throw Error('Unexpected import '+s);return imports[s];},Response,Request,URL,crypto,TextEncoder,Uint8Array,Date,console});return loaded.exports;};
  const helper=load('../lib/sharing-server.ts',{'cloudflare:workers':{env:{DB:db,BUCKET:bucket}}});
  return {sql,objects,create:load('../app/api/shares/route.ts',{'@/lib/sharing-server':helper}),item:load('../app/api/shares/[id]/route.ts',{'@/lib/sharing-server':helper})};
 }

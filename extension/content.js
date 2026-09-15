@@ -15,6 +15,18 @@
  refresh();chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.once)refresh();});
  function clean(s){return String(s||'').replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g,'[email]').replace(/\d{5,}/g,'[number]').replace(/\s+/g,' ').trim().slice(0,100);}
  function rect(el){const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};}
+ let revision=0;
+ new MutationObserver(records=>{if(records.some(r=>r.target!==host&&!host.contains(r.target)))revision++;}).observe(document.documentElement,{subtree:true,childList:true,attributes:true,characterData:true});
+ addEventListener('scroll',()=>revision++,true);addEventListener('resize',()=>revision++);
+ function screenshotState(){
+  const masks=[...document.querySelectorAll('input,textarea,select,[contenteditable],iframe,[data-private],[data-sensitive]')].map(rect).filter(r=>r.w>0&&r.h>0&&r.y<innerHeight&&r.x<innerWidth&&r.y+r.h>0&&r.x+r.w>0);
+  masks.push(rect(host));
+  const unsafeMasking=masks.length>250||[...document.querySelectorAll('*')].some(el=>el.shadowRoot||el.tagName.includes('-'));
+  return {href:location.href,width:innerWidth,height:innerHeight,masks:masks.slice(0,250),unsafeMasking,revision};
+ }
+ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
+  if(message?.type==='ONCE_SCREENSHOT_STATE'&&sender.id===chrome.runtime.id)respond(screenshotState());
+ });
  document.addEventListener('pointerdown',event=>{
   if(!recording||paused||!event.isTrusted||event.button!==0||document.visibilityState!=='visible'||Date.now()-last<150)return;
   const t=event.target;if(!(t instanceof Element))return;
@@ -23,10 +35,6 @@
   last=Date.now();
   const isField=el.matches('input,textarea,select,[contenteditable]');
   const label=clean(el.getAttribute('aria-label')||(isField?el.getAttribute('placeholder'):el.textContent)||el.getAttribute('title')||el.tagName.toLowerCase());
-  const sensitive=[...document.querySelectorAll('input,textarea,select,[contenteditable],iframe,[data-private],[data-sensitive]')].map(rect).filter(r=>r.w>0&&r.h>0&&r.y<innerHeight&&r.x<innerWidth&&r.y+r.h>0&&r.x+r.w>0);
-  sensitive.push(rect(host));
-  // Shadow-root controls and a mask overflow cannot be safely inspected: retain a text-only step.
-  const unsafeMasking=sensitive.length>250||[...document.querySelectorAll('*')].some(el=>el.shadowRoot||el.tagName.includes('-'));
-  chrome.runtime.sendMessage({type:'CAPTURE',title:(isField?'Select the ':'Click ')+(label||'control'),url:location.origin,href:location.href,width:innerWidth,height:innerHeight,x:event.clientX,y:event.clientY,masks:sensitive.slice(0,250),unsafeMasking}).catch(()=>{});
+  chrome.runtime.sendMessage({type:'CAPTURE',title:(isField?'Select the ':'Click ')+(label||'control'),url:location.origin,...screenshotState(),x:event.clientX,y:event.clientY}).catch(()=>{});
  },true);
 })();

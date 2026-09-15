@@ -24,13 +24,13 @@ test('AES-GCM round trip, incorrect key and tamper rejection',async()=>{
 });
 
 function recorder(){
- const data={};const session={};let injects=0;let badge='';let screenshots=0;
+ const data={};const session={};let injects=0;let badge='';let screenshots=0;let decoded=0;
  const tab={id:5,windowId:1,active:true,url:'https://example.com/app'};
  const storage=source=>({async get(key){return {[key]:structuredClone(source[key])};},async set(value){Object.assign(source,structuredClone(value));},async remove(key){delete source[key];}});
- const chrome={storage:{local:storage(data),session:storage(session)},runtime:{getURL:s=>'chrome-extension://once/'+s,onMessage:{addListener(){}},onStartup:{addListener(){}}},action:{async setBadgeText(v){badge=v.text;},async setBadgeBackgroundColor(){}},permissions:{async contains(){return true;}},scripting:{async executeScript(){injects++;}},tabs:{async get(){return tab;},async query(){return [tab];},async captureVisibleTab(){screenshots++;throw new Error('Screenshot unsupported in test');},async create(){return {id:8};},onUpdated:{addListener(){}},onRemoved:{addListener(){}}}};
- const context=vm.createContext({chrome,console,crypto,URL,Date,Promise,Number,JSON,fetch});
+ const chrome={storage:{local:storage(data),session:storage(session)},runtime:{getURL:s=>'chrome-extension://once/'+s,onMessage:{addListener(){}},onStartup:{addListener(){}}},action:{async setBadgeText(v){badge=v.text;},async setBadgeBackgroundColor(){}},permissions:{async contains(){return true;}},scripting:{async executeScript(){injects++;}},tabs:{async get(){return tab;},async query(){return [tab];},async sendMessage(){return structuredClone(tab.pageState);},async captureVisibleTab(){screenshots++;if(tab.afterCapture)tab.pageState=tab.afterCapture;return 'data:image/jpeg;base64,AAAA';},async create(){return {id:8};},onUpdated:{addListener(){}},onRemoved:{addListener(){}}}};
+ const context=vm.createContext({chrome,console,crypto,URL,Date,Promise,Number,JSON,fetch,createImageBitmap:async()=>{decoded++;throw new Error('test decoder');}});
  vm.runInContext(readFileSync(new URL('../extension/background.js',import.meta.url),'utf8'),context);
- return {context,data,tab,screenshots:()=>screenshots,call:(m,s={url:'chrome-extension://once/popup.html'})=>{context.m=m;context.sender=s;return vm.runInContext('command(m,sender)',context);}};
+ return {context,data,tab,screenshots:()=>screenshots,decoded:()=>decoded,call:(m,s={url:'chrome-extension://once/popup.html'})=>{context.m=m;context.sender=s;return vm.runInContext('command(m,sender)',context);}};
 }
 test('recorder start, text-only fallback, stop, and sender isolation',async()=>{
  const r=recorder();assert.equal((await r.call({type:'START',tabId:5,origin:'https://example.com'})).ok,true);
@@ -63,4 +63,19 @@ test('unsafe or invalid masking never invokes screenshot capture',async()=>{
  await r.call({...m,unsafeMasking:true},sender);
  await r.call({...m,masks:[{x:NaN,y:0,w:50,h:50}]},sender);
  assert.equal(r.screenshots(),0);assert.equal(r.data.once.guide.steps.length,2);
+});
+
+test('a page that changes before capture never produces a screenshot',async()=>{
+ const r=recorder();await r.call({type:'START',tabId:5,origin:'https://example.com'});
+ const m={type:'CAPTURE',title:'Click Settings',href:r.tab.url,width:1000,height:700,masks:[],x:10,y:20,revision:1};
+ r.tab.pageState={...m,revision:2};
+ await r.call(m,{url:r.tab.url,tab:r.tab,frameId:0});
+ assert.equal(r.screenshots(),0);assert.equal(r.data.once.guide.steps.length,1);assert.equal(r.data.once.guide.steps[0].image,undefined);
+});
+test('mask movement during capture discards the image and preserves the step',async()=>{
+ const r=recorder();await r.call({type:'START',tabId:5,origin:'https://example.com'});
+ const m={type:'CAPTURE',title:'Click Settings',href:r.tab.url,width:1000,height:700,masks:[{x:0,y:0,w:40,h:40}],x:10,y:20,revision:1};
+ r.tab.pageState={...m};r.tab.afterCapture={...m,masks:[{x:0,y:100,w:40,h:40}]};
+ await r.call(m,{url:r.tab.url,tab:r.tab,frameId:0});
+ assert.equal(r.screenshots(),1);assert.equal(r.decoded(),0);assert.equal(r.data.once.guide.steps.length,1);assert.equal(r.data.once.guide.steps[0].image,undefined);
 });
