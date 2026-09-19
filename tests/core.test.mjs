@@ -2,8 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {validateGuide,newGuide,toHtml,toMarkdown} from '../lib/model.ts';
+import {validateGuide,newGuide,toHtml,toMarkdown,uid} from '../lib/model.ts';
 import {encrypt,decrypt} from '../lib/crypto.ts';
+
+test('guide identifiers work when randomUUID is unavailable in an HTTP preview',()=>{
+ const descriptor=Object.getOwnPropertyDescriptor(crypto,'randomUUID');
+ Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true});
+ try {
+  const ids=Array.from({length:100},()=>uid());
+  assert.equal(new Set(ids).size,100);
+  for(const id of ids)assert.match(id,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.ok(newGuide().id);
+ } finally {
+  if(descriptor)Object.defineProperty(crypto,'randomUUID',descriptor);
+  else delete crypto.randomUUID;
+ }
+});
 
 test('imports preserve titles, notes and safe screenshots without trusting ids or revocation keys',()=>{
  const g=validateGuide({version:1,id:'unsafe',title:'A guide',steps:[{id:'bad',title:'Click Save',note:'A note',image:'data:image/png;base64,AAAA',url:'https://example.com/a?secret=123#key'}],share:{token:'secret'}});
