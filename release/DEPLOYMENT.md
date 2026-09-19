@@ -50,3 +50,9 @@ Never use the placeholder database UUID for a public deployment. Database migrat
 ## Rollback
 
 Keep the previous successful Worker version available in Cloudflare. Roll back the Worker version if needed; do not delete databases or buckets. Keep the prior store package and version notes. Never try to undo a release by removing users' shared objects.
+
+## Local-only beta (owner-selected September 19)
+
+R2 remains disabled. Set `ONCE_SHARING_ENABLED=false` when building to omit both storage bindings; the editor displays an unavailable-sharing explanation. Do not apply database migrations or activate R2 for this mode. The account subdomain `once-guides.workers.dev` has been reserved, but no live Worker URL is verified yet.
+
+The existing `release:prepare` command is for storage-enabled releases. For the local-only beta, run the tests, typecheck and lint, package the extension for the verified origin, then build with `ONCE_SHARING_ENABLED=false`. Inspect the generated configuration to confirm both binding arrays are empty before deployment. Update the privacy availability notice before publishing. Wrangler OAuth is separate from the working MCP connection.

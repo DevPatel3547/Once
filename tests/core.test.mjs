@@ -44,7 +44,7 @@ function recorder(){
  const chrome={storage:{local:storage(data),session:storage(session)},runtime:{getURL:s=>'chrome-extension://once/'+s,onMessage:{addListener(){}},onStartup:{addListener(){}}},action:{async setBadgeText(v){badge=v.text;},async setBadgeBackgroundColor(){}},permissions:{async contains(){return true;}},scripting:{async executeScript(){injects++;}},tabs:{async get(){return tab;},async query(){return [tab];},async sendMessage(){return structuredClone(tab.pageState);},async captureVisibleTab(){screenshots++;if(tab.afterCapture)tab.pageState=tab.afterCapture;return 'data:image/jpeg;base64,AAAA';},async create(){return {id:8};},onUpdated:{addListener(){}},onRemoved:{addListener(){}}}};
  const context=vm.createContext({chrome,console,crypto,URL,Date,Promise,Number,JSON,fetch,createImageBitmap:async()=>{decoded++;throw new Error('test decoder');}});
  vm.runInContext(readFileSync(new URL('../extension/background.js',import.meta.url),'utf8'),context);
- return {context,data,tab,screenshots:()=>screenshots,decoded:()=>decoded,call:(m,s={url:'chrome-extension://once/popup.html'})=>{context.m=m;context.sender=s;return vm.runInContext('command(m,sender)',context);}};
+ return {context,data,session,chrome,tab,screenshots:()=>screenshots,decoded:()=>decoded,call:(m,s={url:'chrome-extension://once/popup.html'})=>{context.m=m;context.sender=s;return vm.runInContext('command(m,sender)',context);}};
 }
 test('recorder start, text-only fallback, stop, and sender isolation',async()=>{
  const r=recorder();assert.equal((await r.call({type:'START',tabId:5,origin:'https://example.com'})).ok,true);
@@ -92,4 +92,32 @@ test('mask movement during capture discards the image and preserves the step',as
  r.tab.pageState={...m};r.tab.afterCapture={...m,masks:[{x:0,y:100,w:40,h:40}]};
  await r.call(m,{url:r.tab.url,tab:r.tab,frameId:0});
  assert.equal(r.screenshots(),1);assert.equal(r.decoded(),0);assert.equal(r.data.once.guide.steps.length,1);assert.equal(r.data.once.guide.steps[0].image,undefined);
+});
+
+test('editor handoff retains pending data until a matching acknowledgement',async()=>{
+ const r=recorder();await r.call({type:'START',tabId:5,origin:'https://example.com'});await r.call({type:'STOP'});
+ r.tab.url='http://localhost:5173/?capture=1';
+ r.chrome.scripting.executeScript=async()=>[{frameId:0,result:null}];
+ await r.call({type:'EDITOR'});assert.ok(r.session.oncePending);assert.ok(r.data.once.guide);
+ r.chrome.scripting.executeScript=async()=>[{frameId:0,result:'wrong-transfer'}];
+ await vm.runInContext('deliverPending(8)',r.context);assert.ok(r.session.oncePending);
+ r.chrome.scripting.executeScript=async()=>[{frameId:0,result:r.session.oncePending.transferId}];
+ await vm.runInContext('deliverPending(8)',r.context);assert.equal(r.session.oncePending,undefined);assert.ok(r.data.once.guide);
+});
+test('editor navigation and injection failure preserve a recoverable recording',async()=>{
+ const r=recorder();await r.call({type:'START',tabId:5,origin:'https://example.com'});await r.call({type:'STOP'});
+ await r.call({type:'EDITOR'});assert.ok(r.session.oncePending);
+ r.tab.url='http://localhost:5173/?capture=1';r.chrome.scripting.executeScript=async()=>{throw Error('Editor closed');};
+ await vm.runInContext('deliverPending(8)',r.context);assert.ok(r.session.oncePending);assert.ok(r.data.once.guide);
+});
+test('injected bridge ignores foreign acknowledgements and retries until timeout',async()=>{
+ const r=recorder();let listener,tick,cleared=false;const sent=[];
+ r.context.window={addEventListener:(_type,fn)=>{listener=fn;},removeEventListener:()=>{listener=null;},postMessage:m=>sent.push(m)};
+ r.context.location={origin:'http://localhost:5173'};r.context.document={documentElement:{dataset:{onceReady:'true'}}};
+ r.context.setInterval=fn=>{tick=fn;return 1;};r.context.clearInterval=()=>{cleared=true;};
+ const promise=vm.runInContext("deliverCapture({title:'test'},'transfer')",r.context);tick();assert.equal(sent.length,1);
+ listener({source:{},origin:r.context.location.origin,data:{type:'ONCE_CAPTURE_RECEIVED',transferId:'transfer'}});assert.equal(cleared,false);
+ listener({source:r.context.window,origin:'https://other.example',data:{type:'ONCE_CAPTURE_RECEIVED',transferId:'transfer'}});assert.equal(cleared,false);
+ listener({source:r.context.window,origin:r.context.location.origin,data:{type:'ONCE_CAPTURE_RECEIVED',transferId:'transfer'}});assert.equal(await promise,'transfer');assert.equal(listener,null);
+ const timeout=vm.runInContext("deliverCapture({},'later')",r.context);for(let i=0;i<61;i++)tick();assert.equal(await timeout,null);assert.equal(listener,null);
 });

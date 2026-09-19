@@ -1,4 +1,4 @@
-# Once extension — beta 0.3.0
+# Once extension — beta 0.3.1
 
 Unzip this folder, open chrome://extensions (or edge://extensions), enable Developer mode, and choose **Load unpacked**. Select this folder containing manifest.json.
 
@@ -16,3 +16,5 @@ This is an unpacked beta, not a Chrome Web Store release. Test on the included p
 Pause, resume, and stop are available in the popup and the recorded page. If a page contains custom elements or open shadow roots, capture uses text-only steps because internal fields cannot be reliably inspected. Review every screenshot; automatic masking cannot cover all possible visible private information or dynamic changes.
 
 The editor destination is set when this package is built. This is an unpacked beta, not a Chrome Web Store listing. A page that changes during screenshot capture produces a text-only step to avoid using stale privacy masks.
+
+Release 0.3.1 retries editor delivery until the editor acknowledges the capture. The original recording remains in the extension even after receipt; keep it until you confirm the imported guide is saved. If the editor fails to load, download the JSON backup.

@@ -1,2 +1,3 @@
 import Workspace from '@/components/workspace';
-export default function Page(){return <Workspace/>;}
+import {env} from 'cloudflare:workers';
+export default function Page(){return <Workspace sharingEnabled={!!env.DB&&!!env.BUCKET}/>;}

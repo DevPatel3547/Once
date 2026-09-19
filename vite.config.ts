@@ -19,7 +19,7 @@ const localBindingConfig = {
   main: "vinext/server/fetch-handler",
   compatibility_date: '2026-05-15',
   compatibility_flags: ["nodejs_compat"],
-  d1_databases: d1
+  d1_databases: d1 && process.env.ONCE_SHARING_ENABLED !== "false"
     ? [
         {
           binding: d1,
@@ -29,7 +29,7 @@ const localBindingConfig = {
         },
       ]
     : [],
-  r2_buckets: r2
+  r2_buckets: r2 && process.env.ONCE_SHARING_ENABLED !== "false"
     ? [
         {
           binding: r2,

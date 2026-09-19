@@ -55,16 +55,39 @@ async function command(m,sender){
  if(m.type==='EDITOR'){
   const state=await read();if(!state.guide||state.recording)return {error:'Stop recording first.'};
   const tab=await chrome.tabs.create({url:ORIGIN+'/?capture=1'});
-  await chrome.storage.session.set({oncePending:{tabId:tab.id,guide:state.guide}});return {ok:true};
+  await chrome.storage.session.set({oncePending:{tabId:tab.id,guide:state.guide,transferId:crypto.randomUUID()}});
+  await deliverPending(tab.id);return {ok:true};
  }
  return {error:'Unknown command'};
 }
 chrome.runtime.onMessage.addListener((m,sender,respond)=>{queue=queue.then(()=>command(m,sender)).then(respond).catch(e=>respond({error:e.message||'Capture failed'}));return true;});
 chrome.tabs.onUpdated.addListener((id,info)=>{if(info.status!=='complete')return;queue=queue.then(async()=>{
  const state=await read();if(state.recording&&state.tabId===id){const tab=await chrome.tabs.get(id);if(new URL(tab.url).origin!==state.origin){await stop();}else{await chrome.scripting.executeScript({target:{tabId:id},files:['content.js']});}}
- const {oncePending:p}=await chrome.storage.session.get('oncePending');if(p?.tabId!==id)return;
- const tab=await chrome.tabs.get(id);if(new URL(tab.url).origin!==ORIGIN)return;
- await chrome.scripting.executeScript({target:{tabId:id},func:(guide)=>{let n=0;const t=setInterval(()=>{if(document.documentElement.dataset.onceReady==='true'){window.postMessage({type:'ONCE_CAPTURE',guide},location.origin);clearInterval(t);}else if(++n>60)clearInterval(t);},500);},args:[p.guide]});await chrome.storage.session.remove('oncePending');
+ await deliverPending(id);
  }).catch(()=>{});});
 chrome.tabs.onRemoved.addListener(id=>{queue=queue.then(async()=>{const s=await read();if(s.tabId===id)await stop();}).catch(()=>{});});
 chrome.runtime.onStartup.addListener(()=>{void stop();});
+
+// Injection returning successfully is not a delivery acknowledgement. Keep the
+// pending transfer on timeout/navigation and always retain the local recording.
+async function deliverPending(id){
+ const {oncePending:p}=await chrome.storage.session.get('oncePending');
+ if(p?.tabId!==id)return;
+ try{
+  const tab=await chrome.tabs.get(id);if(new URL(tab.url).origin!==ORIGIN)return;
+  const results=await chrome.scripting.executeScript({target:{tabId:id},func:deliverCapture,args:[p.guide,p.transferId]});
+  if(results.some(r=>r.frameId===0&&r.result===p.transferId))await chrome.storage.session.remove('oncePending');
+ }catch{/* Popup retry and JSON backup remain available. */}
+}
+function deliverCapture(guide,transferId){
+ return new Promise(resolve=>{
+  let attempts=0;let timer;
+  const finish=value=>{clearInterval(timer);window.removeEventListener('message',receive);resolve(value);};
+  const receive=e=>{if(e.source===window&&e.origin===location.origin&&e.data?.type==='ONCE_CAPTURE_RECEIVED'&&e.data.transferId===transferId)finish(transferId);};
+  window.addEventListener('message',receive);
+  timer=setInterval(()=>{
+   if(++attempts>60){finish(null);return;}
+   if(document.documentElement.dataset.onceReady==='true')window.postMessage({type:'ONCE_CAPTURE',guide,transferId},location.origin);
+  },500);
+ });
+}

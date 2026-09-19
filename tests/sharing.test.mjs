@@ -46,3 +46,13 @@ test('new shares clean expired objects and stale counters; global capacity is bo
  const day=Math.floor(Date.now()/86400000);s.sql.prepare('UPDATE share_limits SET count=200 WHERE id=?').run(`global:${day}`);
  assert.equal((await s.create.POST(request(crypto.randomUUID()))).status,429);assert.equal(s.objects.size,1);s.sql.close();
 });
+
+test('a blocked network cannot consume the global sharing budget',async()=>{
+ const s=setup();
+ for(let i=0;i<10;i++)assert.equal((await s.create.POST(request(crypto.randomUUID()))).status,201);
+ for(let i=0;i<210;i++)assert.equal((await s.create.POST(request(crypto.randomUUID()))).status,429);
+ const day=Math.floor(Date.now()/86400000);
+ assert.equal(s.sql.prepare('SELECT count FROM share_limits WHERE id=?').get(`global:${day}`).count,10);
+ assert.equal((await s.create.POST(request(crypto.randomUUID(),{'CF-Connecting-IP':'203.0.113.11'}))).status,201);
+ s.sql.close();
+});
