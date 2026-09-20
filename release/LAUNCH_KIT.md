@@ -6,7 +6,7 @@ Once turns a browser workflow into an editable how-to guide. Capture once, check
 ## Chrome Web Store
 Name: Once — workflow guides
 
-Short description: Record a browser workflow, edit its steps, redact screenshots, and export a guide. Local-first, with optional encrypted sharing.
+Short description: Record a browser workflow, edit its steps, redact screenshots, and export a guide. Local-first, with HTML, Markdown, JSON and PDF exports.
 
 Detailed description:
 
@@ -14,9 +14,9 @@ Stop explaining the same browser task from memory. Once helps you turn the steps
 
 Start recording on a website you approve. Click through the task, pause when needed, and stop when finished. Open the capture in Once to rename steps, add context, reorder instructions, and review the screenshots. Crop images or permanently cover sensitive information before sharing.
 
-Export a standalone HTML guide, Markdown, or a JSON backup. Use your browser’s print dialog to save a PDF. Optional hosted snapshots are encrypted in your browser and expire after seven days. Anyone with the full share link and access to the deployment can read its contents. Hosted sharing has size and daily capacity limits.
+Export a standalone HTML guide, Markdown, or a JSON backup. Use your browser’s print dialog to save a PDF. Hosted sharing is disabled in this public beta. Send an exported file instead.
 
-Your captures and edited guides stay in local browser storage unless you choose hosted sharing. Once does not record keystrokes, read typed field values, or include advertising trackers. Automatic masking is a precaution, not a guarantee: always review visible personal information before sharing.
+Your captures and edited guides stay in local browser storage until you export them. Once does not record keystrokes, read typed field values, or include advertising trackers. Automatic masking is a precaution, not a guarantee: always review visible personal information before sharing.
 
 Current limitations: capture stays in one tab and on one approved website; browser settings, the Chrome Web Store, and some restricted pages cannot be captured. Fast navigation or pages that cannot be safely masked may produce a step without a screenshot. Capture is limited to 100 steps and local storage capacity.
 
@@ -36,17 +36,17 @@ Title: Show HN: Once — local-first browser workflows into editable how-to guid
 
 I built Once for the browser tasks I kept explaining repeatedly. You record a workflow, review the generated steps and screenshots, then export a guide as HTML or Markdown. You can crop and redact screenshots before they leave your browser.
 
-The extension is deliberately explicit about capture: one approved website, a visible recording control, and no typed-value recording. Hosted sharing is optional and encrypted in the browser. Automatic masking still needs human review; I would especially appreciate examples where a capture is confusing or incomplete.
+The extension is deliberately explicit about capture: one approved website, a visible recording control, and no typed-value recording. Hosted sharing is disabled in this beta; use file exports. Automatic masking still needs human review; I would especially appreciate examples where a capture is confusing or incomplete.
 
-Try it: [PUBLIC_URL]
-Extension: [STORE_URL]
+Try it: https://once-guide.once-guides.workers.dev
+Extension: https://once-guide.once-guides.workers.dev/once-extension.zip (unpacked beta; not a store listing)
 
 What browser workflow do you most often have to explain twice?
 
 ## Product Hunt draft
 Tagline: Do it once. Share the how.
 
-Description: Turn a browser task into an editable step-by-step guide. Record clicks, review and redact screenshots, and export your instructions. Local-first editing with optional encrypted, expiring links.
+Description: Turn a browser task into an editable step-by-step guide. Record clicks, review and redact screenshots, and export your instructions. Local-first editing and file exports.
 
 Maker comment: I built Once because screenshots and written instructions drift apart when you create them separately. Once keeps each screenshot with its step, then lets you clean up the guide before sending it. The first version focuses on a small job: make repeat browser instructions easier to produce and safer to review. I’d love feedback from people writing support walkthroughs and internal SOPs.
 
@@ -55,17 +55,17 @@ Title: I built a free tool to turn browser workflows into editable guides
 
 I’m the maker of Once. It records a workflow on a website you approve, pairs clicks with screenshots when available, and lets you edit and redact the result before exporting. I made it for repeated support explanations and internal how-to documents.
 
-It’s an early release with clear limits: one site at a time, no mobile capture, and screenshots still need review. If this is useful for your work, I’d love to see where it falls short: [PUBLIC_URL].
+It’s an early release with clear limits: one site at a time, no mobile capture, and screenshots still need review. If this is useful for your work, I’d love to see where it falls short: https://once-guide.once-guides.workers.dev.
 
 ## X / Bluesky draft
 I built Once to stop explaining the same browser task twice.
 
 Record → edit the steps → redact screenshots → export a guide.
 
-Local-first. No guide account required on the public release. Optional encrypted links that expire.
+Local-first. No guide account required on the public release. Export HTML, Markdown, JSON or PDF. Hosted sharing is disabled.
 
 Here’s a 30-second walkthrough: [DEMO]
-Try it: [PUBLIC_URL]
+Try it: https://once-guide.once-guides.workers.dev
 
 ## Demo storyboard (record the real product)
 0–5s: Repeat instructions: “How do I invite a teammate?”
@@ -90,3 +90,12 @@ Do not use customer accounts, employer material, real emails, fabricated install
 - Reddit self-promotion guidance: https://www.reddit.com/r/reddit.com/wiki/selfpromotion/
 
 These are editable drafts. URLs, support identity, demo, testing, and store approval are release gates, not completed claims.
+
+## Verified release links — September 19, 2026
+- App: https://once-guide.once-guides.workers.dev
+- Privacy: https://once-guide.once-guides.workers.dev/privacy
+- Support: https://once-guide.once-guides.workers.dev/support
+- Support email approved by owner: thefool3547@gmail.com
+- Extension 0.3.1: https://once-guide.once-guides.workers.dev/once-extension.zip
+- Store status: not submitted. Do not present the ZIP as an approved store listing.
+- Marketing status: none of these drafts have been published. Real capture demo remains pending installed-extension testing.

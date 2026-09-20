@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Once — do it once, share the how",
-  description: "Capture a workflow. Make a beautiful step-by-step guide. Local-first, free exports, and private-by-default sharing.",
+  description: "Capture a workflow. Make a beautiful step-by-step guide. Local-first editing and free HTML, Markdown, JSON, and PDF exports.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
