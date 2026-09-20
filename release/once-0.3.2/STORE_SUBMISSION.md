@@ -33,7 +33,7 @@ Website content and click activity are processed locally. Screenshots can contai
 No product account required. Install and open https://once-guide.once-guides.workers.dev/practice. Start recording and approve this site. Click Workspace settings, Members, Send invitation (fictional; no real email sent). Stop, open capture, approve editor permission, import, edit and export HTML/JSON. Verify reload persistence, pause/resume and tab boundaries. Share should explain hosting is disabled.
 
 ## Submission gate
-Not submitted or approved. Publisher sign-in/registration and any required registration fee remain owner actions. Confirm public publisher identity; keep source GitHub private. The 440×280 promo tile is included. Still required: at least one actual 1280×800 screenshot (up to five). Recorder acceptance and genuine screenshots/demo remain pending; do not fabricate them.
+Not submitted or approved. Publisher sign-in/registration and any required registration fee remain owner actions. Confirm public publisher identity; keep source GitHub private. The 440×280 promo tile and two actual 1280×800 JPEG screenshots are included (store-editor.jpg and store-export.jpg). These show the live editor with a test guide; they do not demonstrate extension capture. Recorder acceptance and a real recording demo remain pending.
 
 References checked September 19, 2026:
 https://developer.chrome.com/docs/webstore/register
