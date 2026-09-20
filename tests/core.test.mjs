@@ -42,7 +42,7 @@ function recorder(){
  const tab={id:5,windowId:1,active:true,url:'https://example.com/app'};
  const storage=source=>({async get(key){return {[key]:structuredClone(source[key])};},async set(value){Object.assign(source,structuredClone(value));},async remove(key){delete source[key];}});
  const chrome={storage:{local:storage(data),session:storage(session)},runtime:{getURL:s=>'chrome-extension://once/'+s,onMessage:{addListener(){}},onStartup:{addListener(){}}},action:{async setBadgeText(v){badge=v.text;},async setBadgeBackgroundColor(){}},permissions:{async contains(){return true;}},scripting:{async executeScript(){injects++;}},tabs:{async get(){return tab;},async query(){return [tab];},async sendMessage(){return structuredClone(tab.pageState);},async captureVisibleTab(){screenshots++;if(tab.afterCapture)tab.pageState=tab.afterCapture;return 'data:image/jpeg;base64,AAAA';},async create(){return {id:8};},onUpdated:{addListener(){}},onRemoved:{addListener(){}}}};
- const context=vm.createContext({chrome,console,crypto,URL,Date,Promise,Number,JSON,fetch,createImageBitmap:async()=>{decoded++;throw new Error('test decoder');}});
+ const context=vm.createContext({chrome,console,crypto,URL,Date,Promise,Number,JSON,fetch,setTimeout,Uint8Array,btoa,createImageBitmap:async()=>{decoded++;throw new Error('test decoder');}});
  vm.runInContext(readFileSync(new URL('../extension/background.js',import.meta.url),'utf8'),context);
  return {context,data,session,chrome,tab,screenshots:()=>screenshots,decoded:()=>decoded,call:(m,s={url:'chrome-extension://once/popup.html'})=>{context.m=m;context.sender=s;return vm.runInContext('command(m,sender)',context);}};
 }
@@ -79,12 +79,18 @@ test('unsafe or invalid masking never invokes screenshot capture',async()=>{
  assert.equal(r.screenshots(),0);assert.equal(r.data.once.guide.steps.length,2);
 });
 
-test('a page that changes before capture never produces a screenshot',async()=>{
+test('a click that updates the view uses fresh masks and produces a screenshot',async()=>{
  const r=recorder();await r.call({type:'START',tabId:5,origin:'https://example.com'});
  const m={type:'CAPTURE',title:'Click Settings',href:r.tab.url,width:1000,height:700,masks:[],x:10,y:20,revision:1};
- r.tab.pageState={...m,revision:2};
+ r.tab.pageState={...m,revision:2,masks:[{x:50,y:80,w:100,h:30}]};
+ const fills=[];let markers=0;
+ r.context.createImageBitmap=async()=>({width:1000,height:700,close(){}});
+ r.context.OffscreenCanvas=class {constructor(w,h){this.width=w;this.height=h;}getContext(){return {drawImage(){},fillRect(...args){fills.push(args);},beginPath(){markers++;},arc(){},stroke(){}};}async convertToBlob(){return new Blob(['masked pixels']);}};
  await r.call(m,{url:r.tab.url,tab:r.tab,frameId:0});
- assert.equal(r.screenshots(),0);assert.equal(r.data.once.guide.steps.length,1);assert.equal(r.data.once.guide.steps[0].image,undefined);
+ assert.equal(r.screenshots(),1);assert.equal(r.data.once.guide.steps.length,1);
+ assert.match(r.data.once.guide.steps[0].image,/^data:image\/jpeg;base64,/);
+ assert.deepEqual(fills,[[48,78,104,34]]);assert.equal(markers,0);
+ assert.equal(r.data.once.guide.steps[0].note,'');
 });
 test('mask movement during capture discards the image and preserves the step',async()=>{
  const r=recorder();await r.call({type:'START',tabId:5,origin:'https://example.com'});
@@ -120,4 +126,13 @@ test('injected bridge ignores foreign acknowledgements and retries until timeout
  listener({source:r.context.window,origin:'https://other.example',data:{type:'ONCE_CAPTURE_RECEIVED',transferId:'transfer'}});assert.equal(cleared,false);
  listener({source:r.context.window,origin:r.context.location.origin,data:{type:'ONCE_CAPTURE_RECEIVED',transferId:'transfer'}});assert.equal(await promise,'transfer');assert.equal(listener,null);
  const timeout=vm.runInContext("deliverCapture({},'later')",r.context);for(let i=0;i<61;i++)tick();assert.equal(await timeout,null);assert.equal(listener,null);
+});
+
+test('fresh unsafe masks or navigation never capture pixels',async()=>{
+ for(const change of [{unsafeMasking:true},{href:'https://example.com/other'},{masks:[{x:NaN,y:0,w:1,h:1}]},{width:0}]){
+  const r=recorder();await r.call({type:'START',tabId:5,origin:'https://example.com'});
+  const m={type:'CAPTURE',title:'Click',href:r.tab.url,width:1000,height:700,masks:[],x:10,y:20,revision:1};
+  r.tab.pageState={...m,...change};await r.call(m,{url:r.tab.url,tab:r.tab,frameId:0});
+  assert.equal(r.screenshots(),0);assert.equal(r.data.once.guide.steps.length,1);
+ }
 });

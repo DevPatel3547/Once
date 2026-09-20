@@ -7,27 +7,35 @@ async function stop(){const state=await read();state.recording=false;state.pause
 async function imageFor(message,tab){
  const active=await chrome.tabs.query({active:true,windowId:tab.windowId});if(active[0]?.id!==tab.id)return undefined;
  if(Date.now()-lastCapture<600)return undefined;lastCapture=Date.now();
+ // A click commonly opens a menu or changes a React view. Use fresh masks
+ // after that update, rather than requiring the pre-click DOM to survive.
+ await new Promise(resolve=>setTimeout(resolve,120));
  const before=await chrome.tabs.sendMessage(tab.id,{type:'ONCE_SCREENSHOT_STATE'},{frameId:0});
- if(!stablePage(message,before))return undefined;
+ if(!validPage(before)||before.href!==message.href)return undefined;
+ const selected=await chrome.tabs.query({active:true,windowId:tab.windowId});if(selected[0]?.id!==tab.id)return undefined;
  const data=await chrome.tabs.captureVisibleTab(tab.windowId,{format:'jpeg',quality:78});
  const afterPage=await chrome.tabs.sendMessage(tab.id,{type:'ONCE_SCREENSHOT_STATE'},{frameId:0});
  if(!stablePage(before,afterPage))return undefined;
  const after=await chrome.tabs.get(tab.id);const current=await chrome.tabs.query({active:true,windowId:tab.windowId});
  if(after.url!==message.href||current[0]?.id!==tab.id)return undefined;
  const bitmap=await createImageBitmap(await (await fetch(data)).blob());const scale=Math.min(1,1400/bitmap.width);const canvas=new OffscreenCanvas(Math.round(bitmap.width*scale),Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
- const sx=canvas.width/message.width,sy=canvas.height/message.height;
- ctx.fillStyle='#17261d';for(const r of message.masks){ctx.fillRect(Math.floor(r.x*sx)-2,Math.floor(r.y*sy)-2,Math.ceil(r.w*sx)+4,Math.ceil(r.h*sy)+4);}
- ctx.beginPath();ctx.arc(message.x*sx,message.y*sy,15,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.stroke();ctx.strokeStyle='#168451';ctx.lineWidth=3;ctx.stroke();
+ const sx=canvas.width/before.width,sy=canvas.height/before.height;
+ ctx.fillStyle='#17261d';for(const r of before.masks){ctx.fillRect(Math.floor(r.x*sx)-2,Math.floor(r.y*sy)-2,Math.ceil(r.w*sx)+4,Math.ceil(r.h*sy)+4);}
+ // The old click coordinates can point at another control after a view change.
+ if(stablePage(message,before)){ctx.beginPath();ctx.arc(message.x*sx,message.y*sy,15,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.stroke();ctx.strokeStyle='#168451';ctx.lineWidth=3;ctx.stroke();}
  const blob=await canvas.convertToBlob({type:'image/jpeg',quality:.82});const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));return 'data:image/jpeg;base64,'+btoa(binary);
 }
-function stablePage(a,b){return !!b&&!a.unsafeMasking&&!b.unsafeMasking&&Number.isFinite(a.revision)&&a.revision===b.revision&&a.href===b.href&&a.width===b.width&&a.height===b.height&&JSON.stringify(a.masks)===JSON.stringify(b.masks);}
+function validPage(p){return !!p&&!p.unsafeMasking&&Number.isFinite(p.revision)&&typeof p.href==='string'&&Number.isFinite(p.width)&&Number.isFinite(p.height)&&p.width>0&&p.height>0&&Array.isArray(p.masks)&&p.masks.length<=250&&p.masks.every(r=>r&&[r.x,r.y,r.w,r.h].every(Number.isFinite)&&r.w>=0&&r.h>=0);}
+function stablePage(a,b){return validPage(a)&&validPage(b)&&a.revision===b.revision&&a.href===b.href&&a.width===b.width&&a.height===b.height&&JSON.stringify(a.masks)===JSON.stringify(b.masks);}
 async function capture(m,sender){
  const state=await read();if(!state.recording||state.paused||sender.tab?.id!==state.tabId||sender.frameId!==0||new URL(sender.url).origin!==state.origin)return;
  if(!Number.isFinite(m.width)||!Number.isFinite(m.height)||m.width<1||m.height<1||!Array.isArray(m.masks)||m.masks.length>250||typeof m.title!=='string')return;
  if(state.guide.steps.length>=100){await stop();return;}
  const safeGeometry=[m.x,m.y].every(Number.isFinite)&&m.masks.every(r=>r&&[r.x,r.y,r.w,r.h].every(Number.isFinite)&&r.w>=0&&r.h>=0);
- let image;if(safeGeometry&&!m.unsafeMasking){try{image=await imageFor(m,sender.tab);}catch{}}
- state.guide.steps.push({id:crypto.randomUUID(),title:m.title.slice(0,120),note:image?'':'Screenshot unavailable for this step. Add one in the editor if needed.',image,url:state.origin});state.guide.updated=Date.now();
+ let image;let reason='The page changed during capture, the tab lost focus, or clicks were too close together. Try again with a short pause between clicks.';
+ if(m.unsafeMasking)reason='This page contains components whose private fields cannot be safely masked. This step was saved without a screenshot.';
+ else if(safeGeometry){try{image=await imageFor(m,sender.tab);}catch{reason='Chrome could not capture this page. Return to the recorded tab and start recording from the Once toolbar icon again.';}}
+ state.guide.steps.push({id:crypto.randomUUID(),title:m.title.slice(0,120),note:image?'':'Screenshot unavailable. '+reason,image,url:state.origin});state.guide.updated=Date.now();
  if(JSON.stringify(state).length>8500000){state.guide.steps.at(-1).image=undefined;state.guide.steps.at(-1).note='Capture storage limit reached. Export this guide and start a new one.';state.recording=false;}
  await write(state);await badge(state.recording?String(state.guide.steps.length):'');
 }
